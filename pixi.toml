@@ -1,0 +1,26 @@
+[project]
+authors = ["josh <joshuaholman5@gmail.com>"]
+channels = ["conda-forge"]
+description = "Add a short description here"
+name = "ml-project"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.13.2,<3.14"
+numpy = ">=2.2.3,<3"
+pandas = ">=2.2.3,<3"
+matplotlib = ">=3.10.1,<4"
+seaborn = ">=0.13.2,<0.14"
+urllib3 = ">=2.3.0,<3"
+jupyter = ">=1.1.1,<2"
+wordcloud = ">=1.9.4,<2"
+streamlit = ">=1.43.0,<2"
+nltk = ">=3.9.1,<4"
+nbconvert = ">=7.16.6,<8"
+nbdime = ">=4.0.2,<5"
+
+[pypi-dependencies]
+lets-plot = ">=4.6.1, <5"

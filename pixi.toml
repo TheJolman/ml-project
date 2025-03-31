@@ -22,6 +22,7 @@ nltk = ">=3.9.1,<4"
 nbconvert = ">=7.16.6,<8"
 nbdime = ">=4.0.2,<5"
 marimo = ">=0.11.31,<0.12"
+kagglehub = ">=0.3.8,<0.4"
 
 [pypi-dependencies]
 lets-plot = ">=4.6.1, <5"

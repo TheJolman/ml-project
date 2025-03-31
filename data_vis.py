@@ -22,8 +22,9 @@ def _(path):
     data = pd.read_csv(f"{path}/ufo_sightings_scrubbed.csv",
                       dtype = {
                           "duration (seconds)": str,
-                          "latitude": str
+                          "latitude": str,
                       })
+    data.rename(columns={data.columns[10]: "longitude"}, inplace=True)
     data["duration (seconds)"] = data["duration (seconds)"].replace(
         to_replace=r'[^0-9\.]',
         value='',
@@ -31,13 +32,12 @@ def _(path):
     ).astype(float)
     data["latitude"] = data["latitude"].replace("33q.200088", "33.200088")
     data["latitude"] = data["latitude"].astype(float)
-    data
-
+    data.columns
     return data, pd
 
 
 @app.cell
-def _():
+def _(data):
     import warnings
 
     import matplotlib.pyplot as plt
@@ -55,10 +55,12 @@ def _():
     ax.set_facecolor("white")
     fig
 
-    # plt.scatter(data['longitude'], data['latitude'],
-               # transform=ccrs.PlateCarree(),
-               # alpha=0.5, c="red", s=5)
-    return ax, ccrs, cfeature, fig, np, plt, warnings
+    lon, lat = np.mgrid[-180:181, -90:91]
+
+    plt.scatter(data['longitude'], data['latitude'],
+               transform=ccrs.PlateCarree(),
+               alpha=0.5, c="red", s=5)
+    return ax, ccrs, cfeature, fig, lat, lon, np, plt, warnings
 
 
 @app.cell

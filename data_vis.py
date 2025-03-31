@@ -19,7 +19,18 @@ def _():
 @app.cell
 def _(path):
     import pandas as pd
-    data = pd.read_csv(f"{path}/ufo_sightings_scrubbed.csv")
+    data = pd.read_csv(f"{path}/ufo_sightings_scrubbed.csv",
+                      dtype = {
+                          "duration (seconds)": str,
+                          "latitude": str
+                      })
+    data["duration (seconds)"] = data["duration (seconds)"].replace(
+        to_replace=r'[^0-9\.]',
+        value='',
+        regex=True
+    ).astype(float)
+    data["latitude"] = data["latitude"].replace("33q.200088", "33.200088")
+    data["latitude"] = data["latitude"].astype(float)
     data
 
     return data, pd

@@ -38,6 +38,31 @@ def _(path):
 
 @app.cell
 def _():
+    import warnings
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from cartopy import crs as ccrs, feature as cfeature
+    warnings.filterwarnings('ignore')
+
+    fig = plt.figure(figsize=(11, 8.5))
+    ax = plt.subplot(1, 1, 1,
+                     projection=ccrs.PlateCarree(central_longitude=-75))
+    ax.set_title("UFO sightings heat map")
+    ax.coastlines()
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5, edgecolor='black')
+    ax.add_feature(cfeature.STATES, linewidth=0.3, edgecolor='red')
+    ax.set_facecolor("white")
+    fig
+
+    # plt.scatter(data['longitude'], data['latitude'],
+               # transform=ccrs.PlateCarree(),
+               # alpha=0.5, c="red", s=5)
+    return ax, ccrs, cfeature, fig, np, plt, warnings
+
+
+@app.cell
+def _():
     return
 
 

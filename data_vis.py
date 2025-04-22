@@ -17,23 +17,12 @@ def _():
 
 
 @app.cell
-def _(path):
+def _():
     import pandas as pd
-    data = pd.read_csv(f"{path}/ufo_sightings_scrubbed.csv",
-                      dtype = {
-                          "duration (seconds)": str,
-                          "latitude": str,
-                      })
-    data.rename(columns={data.columns[10]: "longitude"}, inplace=True)
-    data["duration (seconds)"] = data["duration (seconds)"].replace(
-        to_replace=r'[^0-9\.]',
-        value='',
-        regex=True
-    ).astype(float)
-    data["latitude"] = data["latitude"].replace("33q.200088", "33.200088")
-    data["latitude"] = data["latitude"].astype(float)
+    from data_loader import load_ufo_data
+    data = load_ufo_data()
     data.columns
-    return data, pd
+    return data, load_ufo_data, pd
 
 
 @app.cell

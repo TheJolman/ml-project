@@ -50,7 +50,7 @@ def _(data):
                 s=5
                 )
 
-    fig.savefig('ufo_sightings_scatter.png')
+    fig.savefig('outputs/ufo_sightings_scatter.png')
     fig
     return ax, ccrs, cfeature, fig, np, plt, warnings
 
@@ -98,7 +98,7 @@ def _(ax, ccrs, cfeature, data, np, plt):
     cbar.set_label('Log(num sightings)')
     # Why is the colorbar not showing up?
 
-    fig2.savefig('ufo_sightings_heat.png')
+    fig2.savefig('outputs/ufo_sightings_heat.png')
     fig2
     return (
         ax2,

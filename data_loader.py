@@ -22,9 +22,12 @@ def load_ufo_data():
     )
     data["latitude"] = data["latitude"].replace("33q.200088", "33.200088")
     data["latitude"] = data["latitude"].astype(float)
-    data["comments"] = data["comments"].astype(str)
+
+    data["date posted"] = pd.to_datetime(data["date posted"], errors="coerce")
+    data["datetime"] = pd.to_datetime(data["datetime"], errors="coerce")
 
     return data
+
 
 if __name__ == "__main__":
     data = load_ufo_data()

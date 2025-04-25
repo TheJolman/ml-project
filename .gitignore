@@ -13,3 +13,9 @@ wheels/
 # pixi environments
 .pixi
 *.egg-info
+
+# Ignore generated dependency files
+.replit
+replit.nix
+requirements.txt
+package.json

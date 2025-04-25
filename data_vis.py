@@ -91,7 +91,7 @@ def _(ax, ccrs, cfeature, data, np, plt):
                         norm=colors.PowerNorm(gamma=0.5)
                        )
 
-    cbar = plt.colorbar(cs, ax=ax,
+    cbar = plt.colorbar(cs, ax=ax2,
                         pad=0.1,
                         shrink=0.6
                        )

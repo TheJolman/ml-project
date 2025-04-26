@@ -2,20 +2,22 @@
 
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.13.2"
 app = marimo.App(width="medium")
 
-
-@app.cell
-def _():
+with app.setup:
+    # Initialization code that runs before all other cells
     import pandas as pd
 
     from data_loader import load_ufo_data
 
+
+@app.cell
+def _():
     data = load_ufo_data()
     data.dropna(subset=["comments"], inplace=True)
     data
-    return data, pd
+    return (data,)
 
 
 @app.cell
@@ -72,7 +74,7 @@ def _(FreqDist, data):
 
 
 @app.cell
-def _(fdist, pd):
+def _(fdist):
     words_df = pd.DataFrame(fdist.items(), columns=["word", "count"])
     words_df = words_df.sort_values("count", ascending=False).reset_index(
         drop=True

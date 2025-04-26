@@ -1,3 +1,15 @@
+# CPSC 483 Term Project  
+### Authors: Joshua Holman and Kevin Ramirez
+
+---
+## Abstract
+- Find patterns and create data visualizations between UFO sightings across the US.
+- Create model to predict locations of future sightings.
+- Incorporate weather data for stronger models and visualizations.
+
+## Datasets used
+[UFO Sightings](https://www.kaggle.com/datasets/sahityasetu/ufo-sightings)
+
 
 # UFO Sightings Analysis Web Application
 
@@ -21,7 +33,6 @@ A web application that analyzes UFO sighting patterns and provides predictions u
    ```
    python app.py
    ```
-5. The application will be available at your Replit URL
 
 ## Data Analysis
 The application includes:
@@ -30,6 +41,3 @@ The application includes:
 - Natural language processing of sighting descriptions
 - Machine learning predictions for future sightings
 
-## Authors
-- Joshua Holman
-- Kevin Ramirez

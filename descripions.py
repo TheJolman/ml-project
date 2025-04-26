@@ -40,16 +40,14 @@ def _():
 
 @app.class_definition
 class LanguageProcessor:
-    def __init__(self, data):
-        # Store the data as an instance variable
+    def __init__(self):
         self.data = data
-        # Process tokens after initializing the data
         self._process_tokens()
 
     def _process_tokens(self):
-        # First create the tokens column
+        # create the tokens column
         self.data["tokens"] = self.data["comments"].apply(self._preprocess)
-        # Then initialize all_tokens and fdist
+        # initialize all_tokens and fdist
         self.all_tokens = [t for tokens in self.data["tokens"] for t in tokens]
         self.fdist = FreqDist(self.all_tokens)
 
@@ -61,6 +59,10 @@ class LanguageProcessor:
         tokens = [t for t in tokens if t not in stop_words and len(t) > 1]
         return [lemmatizer.lemmatize(t) for t in tokens]
 
+    def get_processed_data(self) -> pd.DataFrame:
+        # Return the processed dataframe
+        return self.data
+
     def get_top_words(self, n=20) -> pd.DataFrame:
         words_df = pd.DataFrame(self.fdist.items(), columns=["word", "count"])
         words_df = (
@@ -69,10 +71,6 @@ class LanguageProcessor:
             .reset_index(drop=True)
         )
         return words_df
-
-    def get_processed_data(self) -> pd.DataFrame:
-        # Return the processed dataframe
-        return self.data
 
     def get_bigrams(self, n=10):
         finder = BigramCollocationFinder.from_words(self.all_tokens)
@@ -85,9 +83,15 @@ class LanguageProcessor:
 
 @app.cell
 def _():
-    processor = LanguageProcessor(data)
+    processor = LanguageProcessor()
     processor.get_processed_data()
     return (processor,)
+
+
+@app.cell
+def _(processor):
+    processor.get_top_words()
+    return
 
 
 @app.cell

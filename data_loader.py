@@ -2,7 +2,7 @@ import pandas as pd
 import kagglehub
 
 
-def load_ufo_data():
+def load_ufo_data() -> pd.DataFrame:
     # Download latest version
     path = kagglehub.dataset_download("sahityasetu/ufo-sightings")
 

@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -12,15 +11,15 @@ import pickle
 from data_loader import load_ufo_data
 
 # Download all required NLTK data
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('stopwords')
-nltk.download('wordnet')
+nltk.download("punkt")
+nltk.download("punkt_tab")
+nltk.download("stopwords")
+nltk.download("wordnet")
 
 # Load the trained model and scaler
-with open('outputs/rf_model.pkl', 'rb') as f:
+with open("outputs/rf_model.pkl", "rb") as f:
     model = pickle.load(f)
-with open('outputs/scaler.pkl', 'rb') as f:
+with open("outputs/scaler.pkl", "rb") as f:
     scaler = pickle.load(f)
 
 # Load and prepare data
@@ -49,30 +48,34 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.header("Sightings Distribution")
-    fig = px.scatter_mapbox(data, 
-                           lat='latitude', 
-                           lon='longitude',
-                           zoom=3,
-                           mapbox_style="open-street-map")
+    fig = px.scatter_mapbox(
+        data, lat="latitude", lon="longitude", zoom=3, mapbox_style="open-street-map"
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 with col2:
     st.header("Sightings by Month")
-    monthly_counts = data['datetime'].dt.month.value_counts().sort_index()
-    fig = px.bar(x=monthly_counts.index, 
-                 y=monthly_counts.values,
-                 labels={'x': 'Month', 'y': 'Number of Sightings'})
+    monthly_counts = data["datetime"].dt.month.value_counts().sort_index()
+    fig = px.bar(
+        x=monthly_counts.index,
+        y=monthly_counts.values,
+        labels={"x": "Month", "y": "Number of Sightings"},
+    )
     st.plotly_chart(fig, use_container_width=True)
 
 # Text analysis
 st.header("Common Words in Sighting Descriptions")
-stop_words = set(stopwords.words('english'))
-words = [word.lower() for text in data['comments'].dropna() 
-         for word in word_tokenize(text) 
-         if word.isalnum() and word.lower() not in stop_words]
+stop_words = set(stopwords.words("english"))
+words = [
+    word.lower()
+    for text in data["comments"].dropna()
+    for word in word_tokenize(text)
+    if word.isalnum() and word.lower() not in stop_words
+]
 fdist = FreqDist(words)
 
 # Generate and display wordcloud
-wordcloud = WordCloud(width=800, height=400,
-                     background_color='white').generate_from_frequencies(fdist)
+wordcloud = WordCloud(
+    width=800, height=400, background_color="white"
+).generate_from_frequencies(fdist)
 st.image(wordcloud.to_array())

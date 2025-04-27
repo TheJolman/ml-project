@@ -12,6 +12,7 @@ with app.setup:
 
     import pygeohash as pgh
     from sklearn.model_selection import train_test_split
+    from sklearn.metrics.pairwise import cosine_similarity
 
     from sentence_transformers import SentenceTransformer
     import tensorflow as tf
@@ -24,6 +25,8 @@ with app.setup:
         print(f"Error importing Keras: {e}")
 
     from descriptions import LanguageProcessor
+
+    MODEL_PATH = "./outputs/text_predictor_model"
 
 
 @app.cell
@@ -146,7 +149,7 @@ def _(text_model):
 @app.cell
 def _(mo, test, text_model, train, val):
     # this is an expensive function call
-    @mo.cache
+    @mo.persistent_cache
     def get_text_embeddings(df, model):
         """Encodes 'tokens' col of a DataFrame into sentence embeddings."""
         sentences = (
@@ -170,7 +173,7 @@ def _(mo, test, text_model, train, val):
 
 @app.cell
 def _(mo):
-    mo.md(r"""## Train model with Keras""")
+    mo.md(r"""## Training model with Keras""")
     return
 
 
@@ -257,6 +260,7 @@ def _(
     Y_val_text,
     mo,
     model,
+    path,
 ):
     @mo.cache
     def train_model():
@@ -276,10 +280,25 @@ def _(
         )
 
         print("Training done!")
+        print(f"Saving model to {MODEL_PATH}...")
+        try:
+            model.save(path)
+            print("Model saved.")
+        except Exception as e:
+            print("Error saving model:", e)
         return model
+    return (train_model,)
 
 
-    trained_model = train_model()
+@app.cell
+def _(train_model):
+    def get_trained_model(train_new=False):
+        if os.path.exists(MODEL_PATH) and not train_new:
+            return keras.models.load_model(MODEL_PATH)
+        return train_model()
+
+
+    trained_model = get_trained_model()
     return (trained_model,)
 
 
@@ -290,6 +309,12 @@ def _(BATCH_SIZE, X_test_coords, Y_test_text, trained_model):
     )
     print(f"Test Loss: {test_loss:.4f}")
     print(f"Test Cosine Similarity: {test_cosine_similarity:.4f}")
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""## Using the model""")
     return
 
 

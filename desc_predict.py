@@ -355,9 +355,15 @@ class UFODescriptorPredictor:
         self.vocab_size = None
 
         if model_path and os.path.exists(model_path):
-            self.load_model(model_path)
+            self._load_model(model_path)
 
-    def create_model(self, vocab_size, coord_embedding_dim=32, hidden_dim=128):
+    def _create_model(
+        self,
+        vocab_size,
+        coord_embedding_dim=32,
+        hidden_dim=128,
+        learning_rate=1e-4,
+    ):
         """
         Create the neural network model architecture.
 
@@ -365,6 +371,7 @@ class UFODescriptorPredictor:
             vocab_size: Size of the geohash vocabulary.
             coord_embedding_dim: Dimension of the coordinate embedding.
             hidden_dim: Dimension of the hidden layer.
+            learning_rate: Learning rate for the Adam optimizer.
 
         Returns:
             A compiled Keras model.
@@ -397,7 +404,7 @@ class UFODescriptorPredictor:
             inputs=input_coord, outputs=output_layer, name="CoordToTextMapper"
         )
 
-        optimizer = keras.optimizers.Adam(learning_rate=1e-4)
+        optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
         cosine_loss = keras.losses.CosineSimilarity(axis=1)
 
         model.compile(
@@ -408,7 +415,7 @@ class UFODescriptorPredictor:
 
         return model
 
-    def coords_to_geohash(self, lat, lon):
+    def _coords_to_geohash(self, lat, lon):
         """
         Convert latitude and longitude to a geohash string.
 
@@ -421,7 +428,7 @@ class UFODescriptorPredictor:
         """
         return pgh.encode(lat, lon, precision=self.geohash_precision)
 
-    def prepare_data(self, df):
+    def _prepare_data(self, df):
         """
         Prepare data for training by adding geohash column.
 
@@ -433,14 +440,14 @@ class UFODescriptorPredictor:
         """
         df = df.copy()
         df["geohash"] = df.apply(
-            lambda row: self.coords_to_geohash(
+            lambda row: self._coords_to_geohash(
                 row["latitude"], row["longitude"]
             ),
             axis=1,
         )
         return df
 
-    def build_vocab(self, geohashes):
+    def _build_vocab(self, geohashes):
         """
         Build vocabulary mapping from geohash strings to indices.
 
@@ -452,7 +459,7 @@ class UFODescriptorPredictor:
         self.vocab_size = len(unique_geohashes)
         print(f"Vocabulary built with {self.vocab_size} unique geohashes.")
 
-    def geohash_to_index(self, geohash):
+    def _geohash_to_index(self, geohash):
         """
         Convert a geohash string to its vocabulary index.
 
@@ -461,10 +468,16 @@ class UFODescriptorPredictor:
 
         Returns:
             Integer index of the geohash in the vocabulary.
+            Returns 0 for unknown geohashes (handles unseen locations).
         """
+        # Default to index 0 for unknown geohashes
+        if self.geohash_to_idx is None:
+            raise ValueError(
+                "Vocabulary not initialized. Call build_vocab first."
+            )
         return self.geohash_to_idx.get(geohash, 0)
 
-    def encode_text(self, descriptions):
+    def _encode_text(self, descriptions):
         """
         Encode text descriptions into embeddings.
 
@@ -474,11 +487,17 @@ class UFODescriptorPredictor:
         Returns:
             Numpy array of text embeddings.
         """
+        if descriptions.empty:
+            print("Warning: attempting to encode empty descriptions Series.")
+            return np.empty((0, self.text_embedding_dim), dtype=np.float32)
+
+        first_element = descriptions.iloc[0]
+
         # Handle both string descriptions and token lists
-        if isinstance(descriptions[0], list):
+        if isinstance(first_element, list):
             sentences = [" ".join(map(str, tokens)) for tokens in descriptions]
         else:
-            sentences = descriptions
+            sentences = descriptions.tolist()
 
         print(f"Encoding {len(sentences)} descriptions...")
         embeddings = self.text_model.encode(sentences, show_progress_bar=True)
@@ -500,23 +519,40 @@ class UFODescriptorPredictor:
         Returns:
             Training history.
         """
-        train_data = self.prepare_data(train_df)
-        self.build_vocab(train_data["geohash"])
-        self.model = self.create_model(self.vocab_size)
+        if train_df.empty:
+            raise ValueError("Training DataFrame cannot be empty.")
+
+        train_data = self._prepare_data(train_df)
+        self._build_vocab(train_data["geohash"])
+        # TODO: Maybe make this a public func and check if not none here
+        self.model = self._create_model(self.vocab_size)
 
         X_train = np.array(
-            [self.geohash_to_index(gh) for gh in train_data["geohash"]]
+            [self._geohash_to_index(gh) for gh in train_data["geohash"]]
         )
 
-        Y_train = self.encode_text(train_data["tokens"])
+        Y_train = self._encode_text(train_data["tokens"])
+
+        if X_train.shape[0] == 0:
+            raise ValueError(
+                "Training data processing resulted in empty features (X_train)."
+            )
+        if Y_train.shape[0] == 0:
+            raise ValueError(
+                "Training data encoding resulted in empty labels (Y_train)."
+            )
+        if X_train.shape[0] != Y_train.shape[0]:
+            raise ValueError(
+                f"Training features and labels have mismatched sample counts: {X_train.shape[0]} != {Y_train.shape[0]}"
+            )
 
         # Prepare validation data if provided
         if val_df is not None:
-            val_data = self.prepare_data(val_df)
+            val_data = self._prepare_data(val_df)
             X_val = np.array(
-                [self.geohash_to_index(gh) for gh in val_data["geohash"]]
+                [self._geohash_to_index(gh) for gh in val_data["geohash"]]
             )
-            Y_val = self.encode_text(val_data["tokens"])
+            Y_val = self._encode_text(val_data["tokens"])
             validation_data = (X_val, Y_val)
         else:
             validation_data = None
@@ -538,7 +574,7 @@ class UFODescriptorPredictor:
         )
 
         if save_path:
-            self.save_model(save_path)
+            self._save_model(save_path)
 
         return history
 
@@ -556,8 +592,8 @@ class UFODescriptorPredictor:
         if self.model is None:
             raise ValueError("Model not loaded or trained yet.")
 
-        geohash = self.coords_to_geohash(lat, lon)
-        geohash_idx = np.array([self.geohash_to_index(geohash)])
+        geohash = self._coords_to_geohash(lat, lon)
+        geohash_idx = np.array([self._geohash_to_index(geohash)])
 
         return self.model.predict(geohash_idx)[0]
 
@@ -576,15 +612,17 @@ class UFODescriptorPredictor:
             raise ValueError("Model not loaded or trained yet.")
 
         geohashes = [
-            self.coords_to_geohash(lat, lon) for lat, lon in zip(lats, lons)
+            self._coords_to_geohash(lat, lon) for lat, lon in zip(lats, lons)
         ]
         geohash_indices = np.array(
-            [self.geohash_to_index(gh) for gh in geohashes]
+            [self._geohash_to_index(gh) for gh in geohashes]
         )
 
         return self.model.predict(geohash_indices)
 
-    def find_similar_descriptions(self, embedding, descriptions, top_n=5):
+    def find_similar_descriptions(
+        self, embedding, descriptions, top_n=5, precomputed_embeddings=None
+    ):
         """
         Find the most similar descriptions to a given embedding.
 
@@ -592,11 +630,21 @@ class UFODescriptorPredictor:
             embedding: Text embedding vector.
             descriptions: List of text descriptions.
             top_n: Number of top results to return.
+            precomputed_embeddings: Optional precomputed embeddings for descriptions.
+                                   If provided, skips the encoding step.
 
         Returns:
             List of (description, similarity_score) tuples.
         """
-        description_embeddings = self.text_model.encode(descriptions)
+        if precomputed_embeddings is not None:
+            description_embeddings = precomputed_embeddings
+            if len(description_embeddings) != len(descriptions):
+                raise ValueError(
+                    f"Number of precomputed embeddings ({len(precomputed_embeddings)}) "
+                    f"does not match number of descriptions ({len(descriptions)})"
+                )
+        else:
+            description_embeddings = self.text_model.encode(descriptions)
 
         # Calculate cosine similarities
         similarities = np.dot(description_embeddings, embedding) / (
@@ -609,7 +657,7 @@ class UFODescriptorPredictor:
 
         return [(descriptions[i], similarities[i]) for i in top_indices]
 
-    def save_model(self, path):
+    def _save_model(self, path):
         """
         Save the model and vocabulary to disk.
 
@@ -634,7 +682,7 @@ class UFODescriptorPredictor:
 
         print(f"Model and vocabulary saved to {path}")
 
-    def load_model(self, path):
+    def _load_model(self, path):
         """
         Load the model and vocabulary from disk.
 
@@ -656,6 +704,13 @@ class UFODescriptorPredictor:
         else:
             raise FileNotFoundError(f"Vocabulary not found at {vocab_path}")
 
+        # Verify model output dimension matches text embedding dimension
+        if self.model.output_shape[1] != self.text_embedding_dim:
+            raise ValueError(
+                f"Model output dimension ({self.model.output_shape[1]}) "
+                f"does not match text embedding dimension ({self.text_embedding_dim})"
+            )
+
         print(f"Model loaded with vocabulary size {self.vocab_size}")
 
 
@@ -665,39 +720,52 @@ def _(mo):
     return
 
 
-@app.function
-def demo_ufo_predictor():
-    # Initialize the predictor
-    predictor = UFODescriptorPredictor(
-        model_path="./outputs/text_predictor_model"
-    )
+@app.cell
+def _(train_df, val_df):
+    def demo_ufo_predictor(use_existing_model=True):
+        # Initialize the predictor with existing model or train a new one
+        if use_existing_model and os.path.exists("./outputs/text_predictor_model"):
+            predictor = UFODescriptorPredictor(
+                model_path="./outputs/text_predictor_model"
+            )
+            print("Loaded existing model")
+        else:
+            print("Training new model...")
+            predictor = UFODescriptorPredictor()
+            predictor.train(
+                train_df, val_df, save_path="./outputs/text_predictor_model"
+            )
+            print("Model training complete")
 
-    # Or train a new model
-    # predictor = UFODescriptorPredictor()
-    # predictor.train(train_df, val_df, save_path="./outputs/text_predictor_model")
+        # Make predictions for a location
+        lat, lon = 37.7749, -122.4194  # San Francisco
+        embedding = predictor.predict(lat, lon)
 
-    # Make predictions for a location
-    lat, lon = 37.7749, -122.4194  # San Francisco
-    embedding = predictor.predict(lat, lon)
+        # Find similar descriptions from a corpus
+        sample_descriptions = [
+            "bright light hovering in the sky",
+            "triangular craft moving silently",
+            "pulsating orb changing colors",
+            "disk-shaped object with flashing lights",
+            "cigar-shaped object moving at high speed",
+        ]
 
-    # Find similar descriptions from a corpus
-    sample_descriptions = [
-        "bright light hovering in the sky",
-        "triangular craft moving silently",
-        "pulsating orb changing colors",
-        "disk-shaped object with flashing lights",
-        "cigar-shaped object moving at high speed",
-    ]
+        similar = predictor.find_similar_descriptions(
+            embedding, sample_descriptions
+        )
 
-    similar = predictor.find_similar_descriptions(
-        embedding, sample_descriptions
-    )
+        print(f"Predicted UFO descriptions for location ({lat}, {lon}):")
+        for desc, score in similar:
+            print(f"- {desc} (similarity: {score:.4f})")
 
-    print(f"Predicted UFO descriptions for location ({lat}, {lon}):")
-    for desc, score in similar:
-        print(f"- {desc} (similarity: {score:.4f})")
+        return predictor
+    return (demo_ufo_predictor,)
 
-    return predictor
+
+@app.cell
+def _(demo_ufo_predictor):
+    demo_ufo_predictor(use_existing_model=False)
+    return
 
 
 @app.cell

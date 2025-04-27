@@ -35,7 +35,13 @@ def _(mo):
         r"""
         # Model: Coords in, likely descriptors out
 
-        This model attempts to predict the likely desciptors of a UFO sighting based off the geographic location it occured at.
+        This model attempts to predict the likely desciptors of a UFO sighting based off geographic location.
+
+        1. Geographic coordinates are first encoded as geohash strings, which are fed into an ebedding layer in order to create a dense representation of location.
+            - Geohashes are transformed into 32-dimensional vectors that the nueral net can work with.
+
+        2. Location features are then passed through a neural net that outputs a text embedding vector.
+            - Vector represents likely descriptors for a UFO sighting at that location.
         """
     )
     return

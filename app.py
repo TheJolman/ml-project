@@ -48,8 +48,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.header("Sightings Distribution")
-    fig = px.scatter_mapbox(
-        data, lat="latitude", lon="longitude", zoom=3, mapbox_style="open-street-map"
+    fig = px.scatter_map(
+        data, lat="latitude", lon="longitude", zoom=3, map_style="open-street-map"
     )
     st.plotly_chart(fig, use_container_width=True)
 

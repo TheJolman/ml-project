@@ -351,12 +351,20 @@ class UFODescriptorPredictor:
         )
 
         # Will be set during training or loading
+        self.model_path = model_path
         self.model = None
         self.geohash_to_idx = None
         self.vocab_size = None
 
         if model_path and os.path.exists(model_path):
             self._load_model(model_path)
+
+    def is_model_cached(self) -> bool:
+        """
+        Returns true if a model is cached on disk.
+        """
+        if self.model_path and os.path.exists(self.model_path):
+            return True
 
     def _create_model(
         self,
@@ -579,7 +587,7 @@ class UFODescriptorPredictor:
 
         return history
 
-    def predict(self, lat, lon):
+    def predict(self: float, lat: float, lon):
         """
         Predict text embedding for a given location.
 
@@ -718,6 +726,14 @@ class UFODescriptorPredictor:
 @app.cell
 def _(mo):
     mo.md(r"""## Using the model""")
+    return
+
+
+@app.cell
+def _():
+    pred = UFODescriptorPredictor(model_path="./outputs/text_predictor_model")
+    pred.is_model_cached()
+    pred.predict(90, 90)
     return
 
 

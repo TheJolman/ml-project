@@ -8,7 +8,9 @@ from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 from wordcloud import WordCloud
 import pickle
+
 from data_loader import load_ufo_data
+from desc_predict import get_lang_splits, UFODescriptorPredictor
 
 # Download all required NLTK data
 nltk.download("punkt")
@@ -79,3 +81,97 @@ wordcloud = WordCloud(
     width=800, height=400, background_color="white"
 ).generate_from_frequencies(fdist)
 st.image(wordcloud.to_array())
+
+
+# Display Neural Network Model!
+@st.cache_resource
+def load_predictor(model_path):
+    try:
+        train_df, val_df, test_df = get_lang_splits()
+        predictor = UFODescriptorPredictor(model_path=SAVE_PATH)
+        if not predictor.is_model_cached():
+            raise ValueError("Model not cached.")
+            return None
+        else:
+            return predictor
+    except Exception as e:
+        st.write(f"Error loading the model: {e}")
+        predictor = None
+
+
+SAVE_PATH = "./outpts/text_predictor_model"
+try:
+    predictor = load_predictor(SAVE_PATH)
+except Exception as e:
+    st.write(f"Error loading the model: {e}")
+    predictor = None
+
+if predictor:
+    col3, col4 = st.columns(2)
+
+    with col1:
+        st.subheader("Input Location")
+        # CSU Fullerton
+        lat_default = 33.883094
+        lon_default = -117.885215
+        lat = st.number_input("Latitude", value=lat_default)
+        lon = st.number_input("Longitude", value=lon_default)
+
+    with col2:
+        st.subheader("Cadidate Descriptions")
+        default_descriptions = [
+            "bright light hovering in the sky",
+            "triangular craft moving silently",
+            "pulsating orb changing colors",
+            "disk-shaped object with flashing lights",
+            "cigar-shaped object moving at high speed",
+            "multiple small lights moving erratically",
+            "a silent, dark shape against the night sky",
+        ]
+        candidate_desc_input = st.text_area(
+            "Enter candidate descriptions (one per line):",
+            value="\n".join(default_descriptions),
+            height=210,
+        )
+
+    if st.button("Predict Likely Descriptors"):
+        candidate_desc = [
+            line.strip() for line in candidate_desc_input.split("\n") if line.strip()
+        ]
+
+        if not candidate_desc:
+            st.warning("Please enter at least one description.")
+        elif latitude is not None and longitude is not None:
+            try:
+                with st.spinner(f"Predicting for ({lat}, {lon})...."):
+                    location_embedding = predictor.predict(lat, lon)
+
+                    similarities = predictor.find_similar_descriptions(
+                        location_embedding,
+                        candidate_desc,
+                        top_n=len(candidate_desc),
+                    )
+
+                st.subheader("Prediction Results")
+                st.write(
+                    f"Most likely descriptors for location ({latitude:.4f}, {longitude:.4f}), based on similarity to the candidates provided:"
+                )
+
+                # Create a DataFrame for better display
+                results_df = pd.DataFrame(
+                    similarities, columns=["Description", "Similarity Score"]
+                )
+                results_df = results_df.sort_values(
+                    by="Similarity Score", ascending=False
+                ).reset_index(drop=True)
+
+                st.dataframe(results_df, use_container_width=True)
+
+            except Exception as e:
+                st.error(f"Error during prediction: {e}")
+
+        else:
+            st.warning("Please enter valid Latitude and Longitude")
+
+else:
+    st.warning("Model could not be loaded.")

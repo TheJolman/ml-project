@@ -2,6 +2,6 @@ from desc_predict import UFODescriptorPredictor, get_lang_splits, precompute_emb
 
 train_df, val_df, test_df = get_lang_splits()
 predictor = UFODescriptorPredictor()
-predictor.train(train_df, val_df, save_path="./outpts/text_predictor_model")
+predictor.train(train_df, val_df, save_path="./outputs/text_predictor_model")
 
 precompute_embeddings(test_df)

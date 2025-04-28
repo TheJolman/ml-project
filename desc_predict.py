@@ -879,20 +879,24 @@ def eval_ufo_predictor(
             }
         )
 
-        results_df = pd.DataFrame(results)
-        return results_df
+    results_df = pd.DataFrame(results)
+    return results_df
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(test_df):
     precompute_embeddings(test_df)
     return
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(test_df):
     predictor = UFODescriptorPredictor("./outputs/text_predictor_model")
-    eval_ufo_predictor(predictor, test_df)
+    results = eval_ufo_predictor(predictor, test_df)
+    results_path = "test_df_results.pkl"
+    with open(results_path, "wb") as f:
+        pickle.dump(results, f)
+    print("Done writing pickled file.")
     return
 
 

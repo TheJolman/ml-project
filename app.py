@@ -83,6 +83,19 @@ wordcloud = WordCloud(
 st.image(wordcloud.to_array())
 
 
+st.markdown("---")
+st.header("Description Likelihood Predictor Model")
+st.markdown("""
+This neural network model predicts likely UFO sighting descriptors based on geographic location. It works by:
+
+1. Converting geographic coordinates to geohash strings (spatial encoding)
+2. Using an embedding layer to create a dense 32-dimensional vector representation of location
+3. Passing this through a neural network to predict a text embedding vector
+4. Finding the most similar descriptions from a set of candidates
+
+The model was trained on tens of thousands of UFO sighting reports to learn regional patterns in sighting descriptions.
+""")
+
 # Display Neural Network Model!
 @st.cache_resource
 def load_predictor(model_path):
@@ -109,7 +122,7 @@ except Exception as e:
 if predictor:
     col3, col4 = st.columns(2)
 
-    with col1:
+    with col3:
         st.subheader("Input Location")
         # CSU Fullerton
         lat_default = 33.883094
@@ -117,8 +130,8 @@ if predictor:
         lat = st.number_input("Latitude", value=lat_default)
         lon = st.number_input("Longitude", value=lon_default)
 
-    with col2:
-        st.subheader("Cadidate Descriptions")
+    with col4:
+        st.subheader("Candidate Descriptions")
         default_descriptions = [
             "bright light hovering in the sky",
             "triangular craft moving silently",

@@ -1,4 +1,5 @@
-from desc_predic import UFODescriptorPredictor, get_lang_splits
+from desc_predict import UFODescriptorPredictor, get_lang_splits
 
+train_df, val_df, _ = get_lang_splits()
 predictor = UFODescriptorPredictor()
-predictor.train_model(save_path="./outpts/text_predictor_model")
+predictor.train(train_df, val_df, save_path="./outpts/text_predictor_model")

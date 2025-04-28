@@ -19,3 +19,8 @@ wheels/
 replit.nix
 requirements.txt
 package.json
+
+# Outputs
+*.pkl
+*.png
+text_predictor_model/

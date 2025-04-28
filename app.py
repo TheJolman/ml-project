@@ -19,68 +19,105 @@ nltk.download("stopwords")
 nltk.download("wordnet")
 
 # Load the trained model and scaler
-with open("outputs/rf_model.pkl", "rb") as f:
-    model = pickle.load(f)
-with open("outputs/scaler.pkl", "rb") as f:
-    scaler = pickle.load(f)
+try:
+    with open("outputs/rf_model.pkl", "rb") as f:
+        model = pickle.load(f)
+except FileNotFoundError:
+    st.error(
+        "Model file not found. Please ensure the model is trained and saved correctly."
+    )
+    model = None
+
+try:
+    with open("outputs/scaler.pkl", "rb") as f:
+        scaler = pickle.load(f)
+except FileNotFoundError:
+    st.error(
+        "Scaler file not found. Please ensure the model is trained and saved correctly."
+    )
+    scaler = None
 
 # Load and prepare data
-data = load_ufo_data()
+
+try:
+    data = load_ufo_data()
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    data = None
 
 st.set_page_config(page_title="UFO Sightings Analysis", layout="wide")
 st.title("UFO Sightings Analysis and Prediction")
 
 # Sidebar for predictions
 st.sidebar.header("Predict UFO Sightings")
+st.markdown("""
+This Random Forest model predicts the number of UFO sightings based on location and time parameters. It works by:
+
+1. Binning locations into a grid across US latitude and longitude
+2. Extracting time-based features (month, day of week, hour)
+3. Using a Random Forest regressor trained on historical data
+4. Scaling inputs with StandardScaler for better performance
+""")
 latitude = st.sidebar.slider("Latitude", 25.0, 50.0, 37.5)
 longitude = st.sidebar.slider("Longitude", -125.0, -65.0, -95.0)
 month = st.sidebar.slider("Month", 1, 12, 6)
 day_of_week = st.sidebar.slider("Day of Week", 0, 6, 3)
 hour = st.sidebar.slider("Hour", 0, 23, 12)
 
-# Make prediction
-features = np.array([[latitude, longitude, month, day_of_week, hour]])
-features_scaled = scaler.transform(features)
-prediction = model.predict(features_scaled)[0]
+if not data.empty and model and scaler:
+    # Make prediction
+    features = np.array([[latitude, longitude, month, day_of_week, hour]])
+    features_scaled = scaler.transform(features)
+    prediction = model.predict(features_scaled)[0]
 
-st.sidebar.markdown(f"### Predicted Sightings\n{prediction:.2f}")
+    st.sidebar.markdown(f"### Predicted Sightings\n{prediction:.2f}")
 
-# Main content
-col1, col2 = st.columns(2)
+    # Main content
+    col1, col2 = st.columns(2)
 
-with col1:
-    st.header("Sightings Distribution")
-    fig = px.scatter_map(
-        data, lat="latitude", lon="longitude", zoom=3, map_style="open-street-map"
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        st.header("Sightings Distribution")
+        fig = px.scatter_map(
+            data, lat="latitude", lon="longitude", zoom=3, map_style="open-street-map"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-with col2:
-    st.header("Sightings by Month")
-    monthly_counts = data["datetime"].dt.month.value_counts().sort_index()
-    fig = px.bar(
-        x=monthly_counts.index,
-        y=monthly_counts.values,
-        labels={"x": "Month", "y": "Number of Sightings"},
-    )
-    st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        st.header("Sightings by Month")
+        monthly_counts = data["datetime"].dt.month.value_counts().sort_index()
+        fig = px.bar(
+            x=monthly_counts.index,
+            y=monthly_counts.values,
+            labels={"x": "Month", "y": "Number of Sightings"},
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-# Text analysis
-st.header("Common Words in Sighting Descriptions")
-stop_words = set(stopwords.words("english"))
-words = [
-    word.lower()
-    for text in data["comments"].dropna()
-    for word in word_tokenize(text)
-    if word.isalnum() and word.lower() not in stop_words
-]
-fdist = FreqDist(words)
+    # Text analysis
+    st.header("Common Words in Sighting Descriptions")
+    stop_words = set(stopwords.words("english"))
+    words = [
+        word.lower()
+        for text in data["comments"].dropna()
+        for word in word_tokenize(text)
+        if word.isalnum() and word.lower() not in stop_words
+    ]
+    fdist = FreqDist(words)
 
-# Generate and display wordcloud
-wordcloud = WordCloud(
-    width=800, height=400, background_color="white"
-).generate_from_frequencies(fdist)
-st.image(wordcloud.to_array())
+    # Generate and display wordcloud
+    wordcloud = WordCloud(
+        width=800, height=400, background_color="white"
+    ).generate_from_frequencies(fdist)
+    st.image(wordcloud.to_array())
+
+else:
+    if not data:
+        st.error("Data not loaded. Please check the data source.")
+    elif not model:
+        st.error(
+            "Random Forest model not loaded. Please check that the model file exists."
+        )
+    elif not scaler:
+        st.error("Scaler not loaded. Please check that the scaler file exists.")
 
 
 st.markdown("---")
@@ -96,28 +133,36 @@ This neural network model predicts likely UFO sighting descriptors based on geog
 The model was trained on tens of thousands of UFO sighting reports to learn regional patterns in sighting descriptions.
 """)
 
+
+# Path to saved model
+SAVE_PATH = "./outpts/text_predictor_model"
+
+
 # Display Neural Network Model!
 @st.cache_resource
 def load_predictor(model_path):
     try:
+        # Get data splits
         train_df, val_df, test_df = get_lang_splits()
-        predictor = UFODescriptorPredictor(model_path=SAVE_PATH)
+
+        # Initialize predictor with model path
+        predictor = UFODescriptorPredictor(model_path=model_path)
+
+        # Verify model is available
         if not predictor.is_model_cached():
-            raise ValueError("Model not cached.")
-            return None
-        else:
-            return predictor
+            raise ValueError("Model files not found in specified path.")
+
+        return predictor
+    except ValueError as e:
+        st.error(f"Model validation error: {e}")
+        return None
     except Exception as e:
-        st.write(f"Error loading the model: {e}")
-        predictor = None
+        st.error(f"Unexpected error loading model: {e}")
+        return None
 
 
-SAVE_PATH = "./outpts/text_predictor_model"
-try:
-    predictor = load_predictor(SAVE_PATH)
-except Exception as e:
-    st.write(f"Error loading the model: {e}")
-    predictor = None
+# Load the predictor
+predictor = load_predictor(SAVE_PATH)
 
 if predictor:
     col3, col4 = st.columns(2)
@@ -148,43 +193,55 @@ if predictor:
         )
 
     if st.button("Predict Likely Descriptors"):
+        # Process description input
         candidate_desc = [
             line.strip() for line in candidate_desc_input.split("\n") if line.strip()
         ]
 
+        # Input validation
         if not candidate_desc:
             st.warning("Please enter at least one description.")
-        elif latitude is not None and longitude is not None:
-            try:
-                with st.spinner(f"Predicting for ({lat}, {lon})...."):
-                    location_embedding = predictor.predict(lat, lon)
 
-                    similarities = predictor.find_similar_descriptions(
-                        location_embedding,
-                        candidate_desc,
-                        top_n=len(candidate_desc),
-                    )
+        if lat is None or lon is None:
+            st.warning("Please enter valid latitude and longitude values.")
 
-                st.subheader("Prediction Results")
-                st.write(
-                    f"Most likely descriptors for location ({latitude:.4f}, {longitude:.4f}), based on similarity to the candidates provided:"
+        try:
+            with st.spinner(f"Predicting for ({lat}, {lon})..."):
+                # Get embedding for the location
+                location_embedding = predictor.predict(lat, lon)
+
+                # Find similar descriptions
+                similarities = predictor.find_similar_descriptions(
+                    location_embedding,
+                    candidate_desc,
+                    top_n=len(candidate_desc),
                 )
 
-                # Create a DataFrame for better display
-                results_df = pd.DataFrame(
-                    similarities, columns=["Description", "Similarity Score"]
-                )
-                results_df = results_df.sort_values(
-                    by="Similarity Score", ascending=False
-                ).reset_index(drop=True)
+            # Display results
+            st.subheader("Prediction Results")
+            st.write(
+                f"Most likely descriptors for location ({lat:.4f}, {lon:.4f}), based on similarity to the candidates provided:"
+            )
 
-                st.dataframe(results_df, use_container_width=True)
+            # Create a DataFrame for better display
+            results_df = pd.DataFrame(
+                similarities, columns=["Description", "Similarity Score"]
+            )
+            results_df = results_df.sort_values(
+                by="Similarity Score", ascending=False
+            ).reset_index(drop=True)
 
-            except Exception as e:
-                st.error(f"Error during prediction: {e}")
+            st.dataframe(results_df, use_container_width=True)
 
-        else:
-            st.warning("Please enter valid Latitude and Longitude")
+        except ValueError as e:
+            st.error(f"Invalid input values: {e}")
+        except TypeError as e:
+            st.error(f"Type error in prediction: {e}")
+        except Exception as e:
+            st.error(f"Error during prediction: {str(e)}")
+            import traceback
+
+            st.error(f"Details: {traceback.format_exc()}")
 
 else:
     st.warning("Model could not be loaded.")

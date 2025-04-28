@@ -47,20 +47,21 @@ def _(mo):
     return
 
 
-@app.cell
-def _():
+@app.function
+def get_lang_splits():
     processor = LanguageProcessor()
     data = processor.get_processed_data()
     data.dropna(subset=["latitude", "longitude", "tokens"], inplace=True)
     data = data[data["tokens"].apply(len) > 0]
-    data
-    return (data,)
+
+    train_df, temp_df = train_test_split(data, test_size=0.2, random_state=42)
+    val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
+    return train_df, val_df, test_df
 
 
 @app.cell
-def _(data):
-    train_df, temp_df = train_test_split(data, test_size=0.2, random_state=42)
-    val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
+def _():
+    train_df, val_df, test_df = get_lang_splits()
 
     print("Training samples:", len(train_df))
     print("Validation samples:", len(val_df))
@@ -152,7 +153,7 @@ def _(text_model):
     return (text_embedding_dim,)
 
 
-@app.cell
+@app.cell(disabled=True)
 def _(mo, test, text_model, train, val):
     # this is an expensive function call
     @mo.persistent_cache
@@ -720,51 +721,50 @@ def _(mo):
     return
 
 
-@app.cell
-def _(train_df, val_df):
-    def demo_ufo_predictor(use_existing_model=True):
-        # Initialize the predictor with existing model or train a new one
-        if use_existing_model and os.path.exists("./outputs/text_predictor_model"):
-            predictor = UFODescriptorPredictor(
-                model_path="./outputs/text_predictor_model"
-            )
-            print("Loaded existing model")
-        else:
-            print("Training new model...")
-            predictor = UFODescriptorPredictor()
-            predictor.train(
-                train_df, val_df, save_path="./outputs/text_predictor_model"
-            )
-            print("Model training complete")
-
-        # Make predictions for a location
-        lat, lon = 37.7749, -122.4194  # San Francisco
-        embedding = predictor.predict(lat, lon)
-
-        # Find similar descriptions from a corpus
-        sample_descriptions = [
-            "bright light hovering in the sky",
-            "triangular craft moving silently",
-            "pulsating orb changing colors",
-            "disk-shaped object with flashing lights",
-            "cigar-shaped object moving at high speed",
-        ]
-
-        similar = predictor.find_similar_descriptions(
-            embedding, sample_descriptions
+@app.function
+def demo_ufo_predictor(train_df, val_df, use_existing_model=True):
+    # Initialize the predictor with existing model or train a new one
+    if use_existing_model and os.path.exists("./outputs/text_predictor_model"):
+        predictor = UFODescriptorPredictor(
+            model_path="./outputs/text_predictor_model"
         )
+        print("Loaded existing model")
+    else:
+        print("Training new model...")
+        predictor = UFODescriptorPredictor()
+        predictor.train(
+            train_df, val_df, save_path="./outputs/text_predictor_model"
+        )
+        print("Model training complete")
 
-        print(f"Predicted UFO descriptions for location ({lat}, {lon}):")
-        for desc, score in similar:
-            print(f"- {desc} (similarity: {score:.4f})")
+    # Make predictions for a location
+    lat, lon = 37.7749, -122.4194  # San Francisco
+    embedding = predictor.predict(lat, lon)
 
-        return predictor
-    return (demo_ufo_predictor,)
+    # Find similar descriptions from a corpus
+    sample_descriptions = [
+        "bright light hovering in the sky",
+        "triangular craft moving silently",
+        "pulsating orb changing colors",
+        "disk-shaped object with flashing lights",
+        "cigar-shaped object moving at high speed",
+    ]
+
+    similar = predictor.find_similar_descriptions(
+        embedding, sample_descriptions
+    )
+
+    print(f"Predicted UFO descriptions for location ({lat}, {lon}):")
+    for desc, score in similar:
+        print(f"- {desc} (similarity: {score:.4f})")
+
+    return predictor
 
 
 @app.cell
-def _(demo_ufo_predictor):
-    demo_ufo_predictor(use_existing_model=False)
+def _():
+    te, va, tr = get_lang_splits()
+    demo_ufo_predictor(te, va, use_existing_model=True)
     return
 
 

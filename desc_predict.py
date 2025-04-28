@@ -17,6 +17,7 @@ with app.setup:
     from sentence_transformers import SentenceTransformer
     import tensorflow as tf
     import os
+    import pickle
 
     os.environ["KERAS_BACKEND"] = "tensorflow"
     try:
@@ -779,8 +780,119 @@ def demo_ufo_predictor(train_df, val_df, use_existing_model=True):
 
 @app.cell
 def _():
-    te, va, tr = get_lang_splits()
-    demo_ufo_predictor(te, va, use_existing_model=True)
+    # demo_ufo_predictor(train_df, val_df, use_existing_model=True)
+    return
+
+
+@app.function
+def precompute_embeddings(df, text_model_name="all-MiniLM-L6-v2") -> None:
+    if not os.path.exists("./outputs/"):
+        os.makedirs("./outputs/")
+    embeddings_path = (
+        f"./outputs/test_embeddings_{text_model_name.replace('/', '_')}.pkl"
+    )
+    text_model = SentenceTransformer(text_model_name)
+    all_descriptions = (
+        df["tokens"].apply(lambda tokens: " ".join(map(str, tokens))).tolist()
+    )
+    precomputed_embeddings = None
+
+    print("Computing text embeddings for test data...")
+    precomputed_embeddings = text_model.encode(
+        all_descriptions, show_progress_bar=True
+    )
+    try:
+        with open(embeddings_path, "wb") as f:
+            pickle.dump(precomputed_embeddings, f)
+        print(f"Test embeddings saved to {embeddings_path}")
+    except Exception as e:
+        print(f"Error saving pickled embeddings: {e}")
+
+
+@app.function
+def eval_ufo_predictor(
+    model, test_df, text_model_name="all-MiniLM-L6-v2", top_n=5
+):
+    if not os.path.exists("./outputs/"):
+        os.makedirs("./outputs/")
+    embeddings_path = (
+        f"./outputs/test_embeddings_{text_model_name.replace('/', '_')}.pkl"
+    )
+    text_model = SentenceTransformer(text_model_name)
+    all_descriptions = (
+        test_df["tokens"]
+        .apply(lambda tokens: " ".join(map(str, tokens)))
+        .tolist()
+    )
+    precomputed_embeddings = None
+
+    if os.path.exists(embeddings_path):
+        try:
+            with open(embeddings_path, "rb") as f:
+                precomputed_embeddings = pickle.load(f)
+            if len(precomputed_embeddings) != len(all_descriptions):
+                print(
+                    "Warning: Number of loaded embeddings does not match test data. Recomputing embeddings."
+                )
+                precomputed_embeddings = None
+        except Exception as e:
+            print(
+                f"Error loading pickled embeddings: {e}. Recomputing embeddings."
+            )
+            precomputed_embeddings = None
+
+    if precomputed_embeddings is None:
+        print("Computing text embeddings for test data...")
+        precomputed_embeddings = text_model.encode(
+            all_descriptions, show_progress_bar=True
+        )
+        try:
+            with open(embeddings_path, "wb") as f:
+                pickle.dump(precomputed_embeddings, f)
+            print(f"Test embeddings saved to {embeddings_path}")
+        except Exception as e:
+            print(f"Error saving pickled embeddings: {e}")
+
+    results = []
+    for index, row in test_df.iterrows():
+        lat = row["latitude"]
+        lon = row["longitude"]
+        true_description = " ".join(map(str, row["tokens"]))
+
+        predicted_embeddings = model.predict(lat, lon)
+        similar_descriptions = model.find_similar_descriptions(
+            predicted_embeddings,
+            all_descriptions,
+            top_n=top_n,
+            precomputed_embeddings=precomputed_embeddings,
+        )
+
+        results.append(
+            {
+                "latitude": lat,
+                "longitude": lon,
+                "true_description": true_description,
+                "predicted_top_n": [
+                    (desc, f"{score:.4f}")
+                    for desc, score in similar_descriptions
+                ],
+            }
+        )
+
+        results_df = pd.DataFrame(results)
+        return results_df
+
+
+@app.cell
+def _(test_df):
+    precompute_embeddings(test_df)
+    return
+
+
+@app.cell
+def _(test_df):
+    predictor = UFODescriptorPredictor("./outputs/text_predictor_model")
+    eval_ufo_predictor(predictor, test_df)
     return
 
 

@@ -245,3 +245,7 @@ if predictor:
 
 else:
     st.warning("Model could not be loaded.")
+
+# same thing but compared against test set
+st.markdown("---")
+

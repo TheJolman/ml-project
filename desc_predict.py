@@ -569,7 +569,7 @@ class UFODescriptorPredictor:
 
         callbacks = [
             keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=3, restore_best_weights=True
+                monitor="loss", patience=3, restore_best_weights=True
             )
         ]
 
@@ -731,9 +731,10 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(train_df):
     pred = UFODescriptorPredictor(model_path="./outputs/text_predictor_model")
-    pred.is_model_cached()
+    if not pred.is_model_cached():
+        pred.train(train_df)
     pred.predict(90, 90)
     return
 

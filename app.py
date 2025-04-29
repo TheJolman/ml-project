@@ -249,3 +249,19 @@ else:
 # same thing but compared against test set
 st.markdown("---")
 
+try:
+    with open("outputs/test_df_results.pkl", "rb") as f:
+        test_df = pickle.load(f)
+except FileNotFoundError:
+    st.error(
+        "Test DataFrame file not found. Please ensure the test results are saved correctly."
+    )
+    test_df = None
+
+if not test_df.empty:
+    st.header("Test Set Predictions")
+    st.markdown(
+        "This section displays the predictions made by the model on the test set. The model was trained on a subset of UFO sightings and evaluated on this test set."
+    )
+
+    st.dataframe(test_df)

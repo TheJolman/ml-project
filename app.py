@@ -261,7 +261,26 @@ except FileNotFoundError:
 if not test_df.empty:
     st.header("Test Set Predictions")
     st.markdown(
-        "This section displays the predictions made by the model on the test set. The model was trained on a subset of UFO sightings and evaluated on this test set."
+        "This section displays the similarity scores for candidate descriptions on the test set. "
+        "Below are the candidate descriptions (same for every row), followed by a table of similarity scores per test sample."
     )
-
-    st.dataframe(test_df)
+    preds = test_df.get("predicted_top_n", [])
+    if not preds.empty:
+        # Get the candidate descriptions (first elements of tuples) from the first row
+        candidates = [desc for desc, _ in preds[1]]
+        # Display candidate descriptions for reference
+        st.subheader("Candidate Descriptions")
+        for idx, desc in enumerate(candidates, start=1):
+            st.text(f"{idx}. {desc}")
+        # Build a DataFrame of similarity scores (second elements)
+        scores = []
+        for row in preds:
+            # convert score strings to float
+            scores.append([float(score) for _, score in row])
+        scores_df = pd.DataFrame(scores, columns=candidates)
+        # Insert the true descriptions as the leftmost column
+        scores_df.insert(0, "true_description", test_df["true_description"].reset_index(drop=True))
+        st.subheader("Similarity Scores per Test Sample")
+        st.dataframe(scores_df, use_container_width=True)
+    else:
+        st.info("No predicted similarity scores available for the test set.")
